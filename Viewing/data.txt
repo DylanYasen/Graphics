@@ -1,0 +1,10 @@
+viewpoint: 5 4 3 <-- eye
+viewDir: -5 -4 -3 << -- gaze  (looking towards 0, 0, 0)
+viewUp: 0 1 0 <--- eye up vector
+projNormal: 5 4 3  <--- viewing plane normal direction
+projDistance:5 <--- viewing plane  (this plane is between the near and the far planes. Note that your far plane must be further away than the geometry. Otherwise, your object will be clipped.)
+viewWidth: 2.5 <---- (width of your viewing plane)
+viewHeight: 2.5  <-- (height of your viewing plane)
+image size: 64 64<--- nx , ny (number of pixels.)
+sphereCenter: 0 0 0 <--- geometry
+sphereRadius: 1 <--- size

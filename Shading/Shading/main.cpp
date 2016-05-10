@@ -102,6 +102,12 @@ struct Plane : public Object{
 };
 
 struct Scene {
+    enum ShadowType{
+        none,
+        soft,
+        hard
+    };
+    
     std::string name;
     std::vector<Object*> objects;
     
@@ -118,7 +124,9 @@ struct Scene {
     float specularExponent;
     Vector3f lightPosition;
     Vector3f lightIintensity;
-
+    float Ka,Kd,Ks;
+    Vector3f bgColor;
+    ShadowType shadowType;
     
     void Clear(){
         for(int i = 0; i < objects.size(); i++){
@@ -133,22 +141,10 @@ void Trace(Scene scene, Vector3f imageBuffer[][300]);
 float RaySphereIntersection(Vector3f d, Vector3f p, Sphere sphere);
 void ResetImageBuffer(Vector3f imageBuffer[][300]);
 
-Vector3f viewPoint(0,0,5);
-Vector3f viewDir(0,0,-5);
-Vector3f viewUp(0,1,0);
-float projDistance = 5;
 float viewWidth = 2.5;
 float viewHeight = 2.5;
 float imageSize = 300;
-
-float specularExponent = 80;
-Vector3f lightPosition(6,0,10);
-Vector3f lightIintensity(0.2,0.2,0.2);
-float Ka = 0.5;
-float Kd  = 0.5;
-float Ks = 0.5;
-
-Vector3f bgColor(1,1,1);
+Vector3f bgColor(0,0,0);
 
 bool CheckShadow(Scene scene,Vector3f hitPoint, Vector3f lightRayDir){
     
@@ -167,18 +163,18 @@ bool CheckShadow(Scene scene,Vector3f hitPoint, Vector3f lightRayDir){
     return false;
 }
 
-Vector3f Shading(Object *obj, Vector3f hitPoint, Vector3f viewRay){
+Vector3f Shading(Scene scene,Object *obj, Vector3f hitPoint, Vector3f viewRay){
   
     // v+l h= ∥v+l∥,
     // L = kd I max(0, n · l) + ks I max(0, n · h)^p,
     Vector3f n = obj->GetNormal(hitPoint);
-    Vector3f l = normalize(hitPoint - lightPosition);
+    Vector3f l = normalize(hitPoint - scene.lightPosition);
     Vector3f v = -normalize(viewRay);
     Vector3f h = normalize(v + l);
     
-    Vector3f diffuse = Kd * obj->diffuseColor * fmaxf(0, n.dot(l));
-    Vector3f specular = Ks * obj->specularColor * pow(fmaxf(0, n.dot(h)), specularExponent);
-    Vector3f ambient = Ka * lightIintensity;
+    Vector3f diffuse = scene.Kd * obj->diffuseColor * fmaxf(0, n.dot(l));
+    Vector3f specular = scene.Ks * obj->specularColor * pow(fmaxf(0, n.dot(h)), scene.specularExponent);
+    Vector3f ambient = scene.Ka * scene.lightIintensity;
  
     // light ray not blocked
     Vector3f L = diffuse + specular + ambient;
@@ -225,7 +221,7 @@ void ResetImageBuffer(Vector3f imageBuffer[][300]){
     
     for (int r = 0; r < 300; r++) {
         for (int c = 0; c < 300; c++) {
-            imageBuffer[r][c] = Vector3(1,1,1);  // background color white
+            imageBuffer[r][c] = Vector3(1,1,1);
         }
     }
 }
@@ -235,24 +231,18 @@ void Trace(Scene scene,Vector3f imageBuffer[][300]){
     printf("%lu\n",scene.objects.size());
     
     // establish camera basis
-    Vector3f w = -normalize(viewDir);
-    Vector3f u = normalize(w.cross(viewUp));
+    Vector3f w = -normalize(scene.viewDir);
+    Vector3f u = normalize(w.cross(scene.viewUp));
     Vector3f v = normalize(u.cross(w));
-    
-//    printf("u: %f %f %f\n",u[0],u[1],u[2]);
-//    printf("v: %f %f %f\n",v[0],v[1],v[2]);
-//    
     
     // unit converion
     float widthPerPx = viewWidth / imageSize;
     float heightPerPx = viewHeight / imageSize;
     
-    Vector3f e = viewPoint;
+    Vector3f e = scene.viewPoint;
     
     // find bottom left point & view dir
     Vector3f eyeBotLeft = e - (viewWidth / 2) * u - (viewHeight / 2) * v + (widthPerPx / 2) * u + (heightPerPx / 2) * v;
-    
-//    printf("bot left :%f %f %f\n",eyeBotLeft[0],eyeBotLeft[1],eyeBotLeft[2]);
     
     // shoot ray from each pixel position
     for (int r = 0; r < imageSize; r++) {
@@ -274,19 +264,28 @@ void Trace(Scene scene,Vector3f imageBuffer[][300]){
                     Vector3 viewRay = p - hitpoint;
                     
                     // TODO: move ambient to scene object
-                    Vector3f ambient = Ka * lightIintensity;
-                    Vector3f lightray = lightPosition - hitpoint;
+                    Vector3f ambient = scene.Ka * scene.lightIintensity;
+                    Vector3f lightray = scene.lightPosition - hitpoint;
                     
-                    if(CheckShadow(scene, hitpoint, lightray)){
-                        imageBuffer[r][c] = ambient;
-                    }
-                    else{
-                        Vector3 color = Shading(scene.objects[i], hitpoint, viewRay);
+                    // shading and shadow
+                    if (scene.shadowType == Scene::ShadowType::none) {
+                        Vector3 color = Shading(scene,scene.objects[i], hitpoint, viewRay);
                         imageBuffer[r][c] = color;
                     }
-                }
-                else{
-//                    printf("ray doesn't hit %s \n",scene.objects[i]->name.c_str());
+                    else if (scene.shadowType == Scene::ShadowType::hard){
+                        
+                        // check shadow ray first
+                        if(CheckShadow(scene, hitpoint, lightray)){
+                            imageBuffer[r][c] = ambient;
+                        }
+                        else{
+                            Vector3 color = Shading(scene,scene.objects[i], hitpoint, viewRay);
+                            imageBuffer[r][c] = color;
+                        }
+                    }
+                    else{
+                        // soft shadow
+                    }
                 }
             }
         }
@@ -298,10 +297,52 @@ int main(int argc, const char * argv[]) {
     Vector3f imageBuffer[300][300];
     
     //
+    //  ================== Scene 0 ==================
+    //
+    Scene scene0;
+    scene0.name = "0-sphere-phong";
+    scene0.viewPoint = Vector3f(5,4,3);
+    scene0.viewDir = Vector3f(-5,-4,-3);
+    scene0.viewUp = Vector3f(0,1,0);
+    scene0.projDistance = 5;
+    scene0.specularExponent = 80;
+    scene0.lightPosition = Vector3f(3,4,5);
+    scene0.lightIintensity = Vector3f(0.3,0.3,0.3 );
+    scene0.Ka = 0.5;
+    scene0.Kd  = 0.5;
+    scene0.Ks = 0.5;
+    scene0.shadowType = Scene::ShadowType::none;
+    
+    Sphere *sphere0 = new Sphere();
+    sphere0->center = Vector3f(0,0,0);
+    sphere0->radius = 1;
+    sphere0->diffuseColor = Vector3f(0.2,0.3,0.8);
+    sphere0->specularColor = Vector3f(1,1,0);
+    sphere0->name = "sphere0";
+    
+    scene0.objects.push_back(sphere0);
+    ResetImageBuffer(imageBuffer);
+    Trace(scene0,imageBuffer);
+    std::string fp = "/Users/Yadikaer/Projects/Graphics/Shading/Shading/"+ scene0.name+ ".ppm";
+    WriteToPPM(imageBuffer, imageSize, imageSize, fp);
+    scene0.Clear();
+    
+    //
     //  ================== Scene 1 ==================
     //
     Scene scene1;
-    scene1.name = "0-three-sphere";
+    scene1.name = "1-sphere-hard-shadow";
+    scene1.viewPoint = Vector3f(0,0,5);
+    scene1.viewDir = Vector3f(0,0,-5);
+    scene1.viewUp = Vector3f(0,1,0);
+    scene1.projDistance = 5;
+    scene1.specularExponent = 80;
+    scene1.lightPosition = Vector3f(10,0,10);
+    scene1.lightIintensity = Vector3f(0.2,0.2,0.2);
+    scene1.Ka = 0.5;
+    scene1.Kd  = 0.5;
+    scene1.Ks = 0.5;
+    scene1.shadowType = Scene::ShadowType::hard;
     
     Plane *plane = new Plane();
     plane->center = Vector3f(0,0,0);
@@ -311,7 +352,7 @@ int main(int argc, const char * argv[]) {
     plane->name = "plane";
     scene1.objects.push_back(plane);
 
-    Sphere *sphere0 = new Sphere();
+    sphere0 = new Sphere();
     sphere0->center = Vector3f(-0.5,0,0.4);
     sphere0->radius = 0.4f;
     sphere0->diffuseColor = Vector3f(1,1,0);
@@ -339,7 +380,7 @@ int main(int argc, const char * argv[]) {
     
     ResetImageBuffer(imageBuffer);
     Trace(scene1,imageBuffer);
-    std::string fp = "/Users/Yadikaer/Projects/Graphics/Shading/Shading/"+ scene1.name+ "image.ppm";
+    fp = "/Users/Yadikaer/Projects/Graphics/Shading/Shading/"+ scene1.name+ ".ppm";
     WriteToPPM(imageBuffer, imageSize, imageSize, fp);
     scene1.Clear();
     //

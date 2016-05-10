@@ -108,6 +108,13 @@ struct Scene {
         hard
     };
     
+    enum Effect{
+        mirror,
+        reflection,
+        refraction,
+        transparency
+    };
+    
     std::string name;
     std::vector<Object*> objects;
     
@@ -126,7 +133,10 @@ struct Scene {
     Vector3f lightIintensity;
     float Ka,Kd,Ks;
     Vector3f bgColor;
+    
     ShadowType shadowType;
+    Effect effectType;
+    
     
     void Clear(){
         for(int i = 0; i < objects.size(); i++){
@@ -191,6 +201,7 @@ Vector3f Shading(Scene scene,Object *obj, Vector3f hitPoint, Vector3f viewRay){
     //obj->color = L;
     return L;
 }
+
 
 void WriteToPPM(Vector3f imageBuffer[][300],int w, int h, std::string fn){
     
@@ -323,7 +334,7 @@ int main(int argc, const char * argv[]) {
     scene0.objects.push_back(sphere0);
     ResetImageBuffer(imageBuffer);
     Trace(scene0,imageBuffer);
-    std::string fp = "/Users/Yadikaer/Projects/Graphics/Shading/Shading/"+ scene0.name+ ".ppm";
+    std::string fp = "./"+ scene0.name+ ".ppm";
     WriteToPPM(imageBuffer, imageSize, imageSize, fp);
     scene0.Clear();
     
@@ -380,45 +391,12 @@ int main(int argc, const char * argv[]) {
     
     ResetImageBuffer(imageBuffer);
     Trace(scene1,imageBuffer);
-    fp = "/Users/Yadikaer/Projects/Graphics/Shading/Shading/"+ scene1.name+ ".ppm";
+    fp = "./"+ scene1.name+ ".ppm";
     WriteToPPM(imageBuffer, imageSize, imageSize, fp);
     scene1.Clear();
     //
     //  ====================================================
     //
     
-    //
-    //  ================== Scene 2 ==================
-    //
-    /*
-    Scene scene2;
-    scene2.name = "1-multiple-spheres";
-    sphere0 = new Sphere();
-    sphere0->center = Vector3f(0,0,0);
-    sphere0->radius = 0.4;
-    sphere0->color = Vector3f(1,0,0);
-    scene2.objects.push_back(sphere0);
-    
-    sphere1 = new Sphere();
-    sphere1->center = Vector3f(0,1,0);
-    sphere1->radius = 0.4;
-    sphere1->color = Vector3f(0,1,0);
-    scene2.objects.push_back(sphere1);
-    
-    sphere2 = new Sphere();
-    sphere2->center = Vector3f(0,-1,0);
-    sphere2->radius = 0.4;
-    sphere2->color = Vector3f(0,0,1);
-    scene2.objects.push_back(sphere2);
-    
-    ResetImageBuffer(imageBuffer);
-    Trace(scene2,imageBuffer);
-    fp = "/Users/Yadikaer/Projects/Graphics/Shading/Shading/"+ scene2.name+ "image.ppm";
-    WriteToPPM(imageBuffer, imageSize, imageSize, fp);
-    scene2.Clear();
-     */
-    
-    //  ====================================================
-
     return 0;
 }

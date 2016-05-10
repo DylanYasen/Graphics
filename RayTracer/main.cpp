@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <math.h>
 #include "MVectorMatrix.h"
 
 using namespace __svl_lib;
@@ -31,6 +32,9 @@ struct Sphere : public Object {
         float B = 2 * d.dot(p - center);
         float C = (p - center).dot(p - center) - radius * radius;
         float delta = B * B - 4 * A * C;
+        
+        float d = sqrtf(b*b)
+        float t1 = -b + sqrtf(b*b - )
         
         return delta;
     }
@@ -174,6 +178,7 @@ void Trace(Scene scene, Vector3f imageBuffer[][300]);
 float RaySphereIntersection(Vector3f d, Vector3f p, Sphere sphere);
 void ResetImageBuffer(Vector3f imageBuffer[][300]);
 
+
 Vector3f viewPoint(5,4,3);
 Vector3f viewDir(-5,-4,-3);
 Vector3f projNormal(5,4,3);
@@ -183,9 +188,29 @@ float viewWidth = 2.5;
 float viewHeight = 2.5;
 float imageSize = 300;
 
+Vector3f diffuseColor (0.2, 0.3, 0.8);
+Vector3f specularColor (1,1,0);
+float specularExponent = 50;
+Vector3f lightPosition(3,4,5);
+Vector3f lightIintensity(1,1,1);
+float Ka = 0.5;
+float Kd  = 0.5;
+float Ks = 0.5;
+
 Vector3f bgColor(1,1,1);
 
-Sphere spheres[3];
+Vector3f PhongShading(Vector3f hitPoint, Vector3f ray,Vector3f surfaceNormal){
+    // v+l h= ∥v+l∥,
+    // L = kd I max(0, n · l) + ks I max(0, n · h)^p,
+    Vector3f n = surfaceNormal;
+    Vector3f l = hitPoint - lightPosition;
+    Vector3f v = ray;
+    Vector3f h = normalize(v + l);
+    
+    Vector3f L = Kd * lightIintensity * fmaxf(0, n.dot(l)) + Ks * lightIintensity * pow(fmax(0, n.dot(h)), specularExponent);
+    
+    return L;
+}
 
 void WriteToPPM(Vector3f imageBuffer[][300],int w, int h, std::string fn){
     
